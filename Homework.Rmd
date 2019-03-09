@@ -1,0 +1,223 @@
+
+\DeclareUnicodeCharacter{2212}{-}
+
+## Emprical Distribution
+### Author: "Diptanshu Singh"
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readtext)
+library(fitdistrplus)
+library(boot)
+library(stringr)
+library(readr)
+```
+
+### Question 1
+
+```{r q1}
+
+tx <- readtext("maybe_uniform.txt")
+tx <- strsplit(tx[1,2], c("\n"))[[1]]
+
+series <- c()
+for ( i in c(1:length(tx))){
+    series <- c(series,as.numeric(strsplit(tx[i], " ")[[1]]))
+}
+
+plot.ecdf(series)
+
+qqplot(x = series, y = runif(100) )
+# This plot seems like it comes from uniform
+
+#Calculating using the D-statistics:
+plotdist(series, demp = TRUE)
+# Probably this distribution is not uniform as visible from the emprical probability distribution
+
+#Performing KS test
+ks.test(series, "punif")
+# The probability that this distribution came from uniform is 35%
+# We will not be surprised if this sample came from uniform distribution 
+
+descdist(series, obs.col = "red")
+#Also on the cullen and frey graph, this lies very close to the uniform distribution 
+
+```
+```{r q1_2}
+# Comparison to other distribution
+# Creating a random sample for other distribution
+
+d1 <- runif(750)/2
+d2 <- 0.5 + runif(250)/2
+
+d <- c(d1,d2)
+
+hist(d)
+# Histogram shows that d follows distribution 3 as given in the question
+
+#Performing KS test
+ks.test(series, d)
+# The probability that this distribution came from uniform is 55%
+# Its more probable to come to distribution 3, then to come from uniform distribution
+# The d statistic is also less compared to this to when we used the uniform distribution
+
+```
+
+
+
+### Question 2
+
+
+```{r q2}
+
+tx <- readtext("maybe_normal.txt")
+tx <- strsplit(tx[1,2], c("\n"))[[1]]
+
+series <- c()
+for ( i in c(1:length(tx))){
+    series <- c(series,as.numeric(strsplit(tx[i], " ")[[1]]))
+}
+
+
+# The QQnorm plot shows that the distribution almost follows a normal distribution
+qqnorm(series)
+
+# Calculating distance statistics for this distribution 
+plotdist(series, demp = TRUE)
+# Probably this distribution is normal as visible from the emprical probability distribution
+
+st_series = (series -  mean(series))/ sd(series)
+#Performing KS test
+ks.test( st_series , "pnorm")
+# The probability that this distribution came from standard normal is 99.97%
+
+descdist(st_series, obs.col = "red")
+#Also on the cullen and frey graph, this lies very close to the normal distribution 
+
+```
+
+
+### Question 3
+
+```{r q3}
+
+#Series 1 
+tx <- readtext("maybe_same_1.txt")
+tx <- str_replace(tx[1,2],"−","-")
+tx <- strsplit(tx, c("\n"))[[1]]
+series <- c()
+for ( i in c(1:length(tx))){
+    series <- c(series, as.numeric(strsplit(tx[i], " ")[[1]]))
+}
+
+X <- series
+
+# Series 2 
+tx <- readtext("maybe_same_2.txt")
+tx <- str_replace_all(tx[1,2],"−","-")
+tx <- strsplit(tx, c("\n"))[[1]]
+series <- c()
+for ( i in c(1:length(tx))){
+    series <- c(series, as.numeric(strsplit(tx[i], " ")[[1]]))
+}
+
+Y <- series
+
+qqplot(X,Y)
+# This plot shows that the distributions are not very simillar
+
+#Calculating d statistics 
+ks.test(X,Y)
+#The KS test says that there is 33% chance of the distribution being simillar
+
+
+ks.test(X+2, Y)
+# The KS test finds the distribution to be very different
+```
+
+### Question 4 
+
+```{r q4}
+norm <- readRDS("norm_sample.Rdata")
+
+#plot ecdf 
+plot.ecdf(norm)
+
+# This plot seems to be very off from the normal distribution 
+qqplot(norm,rnorm(100))
+
+#Standardizing variable to find d statistics 
+norm <- (norm - mean(norm)) / sd(norm)
+
+#KS test 
+ks.test(norm, rnorm(100))
+# We cannot reject the hypothesius that they are from different distribution
+
+```
+
+
+### Question 5
+
+```{r q5}
+
+fj <- read_table("fijiquakes.dat")
+series <- c(fj["mag"])[[1]]
+
+series = sort(series)
+cdf_49 <- min(which (series > 4.899999))
+cdf_43 <- min(which (series > 4.299999))
+
+val = ( cdf_49 - cdf_43 ) / length(series)
+print(val)
+
+# Creating the function for calculating the statistics required
+rsq <- function( data = series, indices){
+  series = series[indices]
+  series = sort(series)
+  cdf_49 <- min(which (series > 4.899999))
+  cdf_43 <- min(which (series > 4.299999))
+  val = ( cdf_49 - cdf_43 ) / length(series)
+  return(val)
+}
+
+# Creating bootstrapped samples for calculating confidence interval
+b_fiji <- boot(series, statistic = rsq , 1000 )
+
+hist(b_fiji$t)
+
+print("The mean value is ")
+print(mean(b_fiji$t))
+
+# 95% confidence interval
+boot.ci(b_fiji, type="bca")
+
+```
+
+```{r q5_2}
+
+mu <- function(series, indices ){
+  d <- series[indices]
+  return (mean(d))
+}
+
+fj <- read_table("faithful.dat")
+tab <- strsplit(fj$`Old Faithful Geyser Data`[14:285], "\t")%>% unlist
+
+series = c()
+for ( i in 1:length(tab)){
+  series = c(series,(as.numeric( substr(tab[i] , 9 ,13))))
+}
+
+med <- function( data = series, indices){
+  series = series[indices]
+  return(median(series))
+}
+
+b_faith <- boot(series, statistic = med , 1000 )
+
+# 90 percentile confidence interval
+print("90% confidence interval for median of waiting time")
+quantile(b_faith$t,c(0.05,0.95))
+
+```
+
